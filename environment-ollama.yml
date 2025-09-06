@@ -1,0 +1,17 @@
+name: ollama-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - ipykernel
+      - jupyter
+      - ollama
+      - numpy
+      - torch
+      - matplotlib
+      - seaborn
+      - scikit-learn
+      - pandas
