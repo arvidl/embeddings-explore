@@ -26,4 +26,16 @@ From https://ai.google.dev/gemma/docs/embeddinggemma:
 > - Low latency: Generative embeddings in less than 22ms on EdgeTPU for fast and fluid applications.
 > - Offline and secure: Generate embeddings of documents directly on your hardware, which works without an internet connection to keep sensitive data secure.
 
-Last updated: 2025-09-06
+### Included functionality for running `gpt-oss-120b`
+
+i.e. 
+
+`MODEL_PATH = f"{os.environ['HOME']}/models/gpt-oss-120b/gpt-oss-120b-mxfp4.gguf"`
+
+using `llama-cpp-python` (enabling MacOS Metal by deafult)
+  - https://github.com/abetlen/llama-cpp-python)
+  - https://llama-cpp-python.readthedocs.io/en
+
+-----
+
+Last updated: 2025-09-09
