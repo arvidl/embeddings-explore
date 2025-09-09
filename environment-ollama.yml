@@ -15,3 +15,12 @@ dependencies:
       - seaborn
       - scikit-learn
       - pandas
+
+
+# For llama-cpp-python install
+# conda activate ollama-env
+# pip install scikit-build-core\[pyproject\]
+# CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
+
+# If you want the fancy formatting with panels and colors:
+# pip install rich
