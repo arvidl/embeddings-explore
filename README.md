@@ -1,5 +1,7 @@
 # embeddings-explore
 
+2025-09-09
+
 [Arvid Lundervold](https://www4.uib.no/en/find-employees/Arvid.Lundervold)
 
 Exploration of *tokenization*, *embeddings*, and (cosine) *similarity* of **Colors**, the **Likert scale scores**, and **Neurological diagnoses** using `google/embeddinggemma-300m`
@@ -38,4 +40,85 @@ using `llama-cpp-python` (enabling MacOS Metal by deafult)
 
 -----
 
-Last updated: 2025-09-09
+# Multi-Token Prediction
+
+> Please explain to me Muti-Token Prediction (e.g., gemma4:31b-coding-mtp-bf16)
+>
+> macOS
+> Ollama on macOS now supports native MTP support for Gemma 4 via [MLX](https://c.vialoops.com/CL0/https:%2F%2Follama.com%2Fblog%2Fmlx/1/0100019e059a38c0-9649d427-5e79-440e-85be-9bd9a500702a-000000/g1UnwPPt8Jc0is0u_avNjhVxKqWs7oP-Iu1Z6Yp69QU=452):
+> 
+> ollama run gemma4:31b-coding-mtp-bf16
+ 
+For more information, please visit Ollama's [Gemma 4 model page](https://c.vialoops.com/CL0/https:%2F%2Follama.com%2Flibrary%2Fgemma4/2/0100019e059a38c0-9649d427-5e79-440e-85be-9bd9a500702a-000000/HloOl0xnm1Cm2gRctDzbPZSh3Q3jZpo-cXsUHndq4rI=452). 
+
+## Core idea of Multi-Token Prediction (MTP)
+
+Multi-Token Prediction in Gemma 4 is an inference-time speedup technique where a **small “drafter” model proposes several future tokens at once**, and the large “target” model (e.g. Gemma 4 31B) **verifies them in parallel** instead of generating one token at a time.  This is a particular implementation of speculative decoding, tuned for Gemma 4. [blog](https://blog.google/innovation-and-ai/technology/developers-tools/multi-token-prediction-gemma-4/)
+
+In practice, this can yield **up to roughly 2–3× higher tokens/second** for the same target model, while keeping the *exact same* output distribution as if you had run the big model alone step‑by‑step. [huggingface](https://huggingface.co/google/gemma-4-31B-it-assistant/blob/main/README.md)
+
+***
+
+## How it works step by step
+
+1. **Two models in the pipeline**  
+   - Target: the full Gemma 4 model, e.g. `gemma4:31b-coding`. [ai.google](https://ai.google.dev/gemma/docs/mtp/mtp)
+   - Drafter (MTP head): a small assistant model, e.g. `gemma-4-31B-it-assistant`, that sits “on top” of the target’s last-layer activations and shared embeddings. [ai.google](https://ai.google.dev/gemma/docs/mtp/overview)
+
+2. **Drafting multiple tokens**  
+   - Given the current prefix, the drafter autoregressively predicts a sequence of \(N\) next tokens (say 4–16) much faster than the 31B model could. [scannn](https://scannn.com/multi-token-prediction-in-gemma-4/)
+   - This is the “multi-token prediction”: the drafter is trained to generate a short continuation, not just one token. [arxiv](https://arxiv.org/abs/2404.19737)
+
+3. **Parallel verification**  
+   - The entire draft sequence is then fed to the target model, which computes a **single forward pass** over those positions. [ai.google](https://ai.google.dev/gemma/docs/mtp/mtp)
+   - For each drafted token position, the target model’s distribution is compared against the drafter’s proposal; high‑probability matches are accepted, low‑probability ones are rejected. [ai.google](https://ai.google.dev/gemma/docs/mtp/overview)
+
+4. **Guaranteeing correctness**  
+   - If the target rejects a token, it *still* outputs its own token for that time step (so you never “lose” a step or sacrifice correctness). [tildes](https://tildes.net/~comp/1u1m/multi_token_prediction_mtp_with_gemma_4)
+   - Because the target always runs at those positions, the final accepted sequence is exactly what you would have gotten from plain autoregressive decoding with the large model alone. [huggingface](https://huggingface.co/google/gemma-4-31B-it-assistant/blob/main/README.md)
+
+5. **Speedup intuition**  
+   - Normally, to produce \(N\) tokens you need \(N\) forward passes of the big model.  
+   - With MTP, the drafter does those \(N\) steps cheaply, and the big model does **one** pass to check them (plus to add one new token of its own). [marktechpost](https://www.marktechpost.com/2026/05/06/google-ai-releases-multi-token-prediction-mtp-drafters-for-gemma-4-delivering-up-to-3x-faster-inference-without-quality-loss/?amp)
+   - This breaks the usual one-token-at-a-time latency bottleneck and yields ~2–3× decoding speedup on supported runtimes (LiteRT-LM, vLLM, HF, MLX, etc.). [app.daily](https://app.daily.dev/posts/multi-token-prediction-in-gemma-4-p8wqk64sp)
+
+***
+
+## What “gemma4:31b-coding-mtp-bf16” means
+
+- **`31b`**: 31 billion parameter target model (dense LLM, not the drafter size). [blog](https://blog.google/innovation-and-ai/technology/developers-tools/multi-token-prediction-gemma-4/)
+- **`coding`**: instruction-tuned for code / programming use cases. [news.ycombinator](https://news.ycombinator.com/item?id=48024540)
+- **`mtp`**: the model is packaged with an MTP drafter checkpoint and decoding configuration so that speculative multi-token prediction is enabled in the serving stack. [news.ycombinator](https://news.ycombinator.com/item?id=48024540)
+- **`bf16`**: weights stored/served in bfloat16 for memory and throughput efficiency. [news.ycombinator](https://news.ycombinator.com/item?id=48024540)
+
+In frameworks like Ollama or HF Transformers, this tag typically means: “load the 31B target together with its associated MTP drafter and use the MTP decoding pipeline by default.” [ai.google](https://ai.google.dev/gemma/docs/mtp/mtp)
+
+***
+
+## Training and architecture notes (at a high level)
+
+- The drafter is **not a completely separate model**; in Gemma 4 it reuses the target’s input embeddings and the last-layer activations, plus a small stack of its own layers and an extra output head. [huggingface](https://huggingface.co/google/gemma-4-31B-it-assistant/blob/main/README.md)
+- It is trained to predict several future tokens jointly, which empirically improves both sample efficiency and draft quality vs. simple one-step distillation. [arxiv](https://arxiv.org/abs/2404.19737)
+- For dense models, verifying multiple drafted positions adds relatively little overhead, since the same weights are applied across all positions in a single pass. [scannn](https://scannn.com/multi-token-prediction-in-gemma-4/)
+
+***
+
+## When to use it (and when not)
+
+**Good fits**  
+- Interactive coding/assistant scenarios where *latency* matters more than slightly higher VRAM usage (you must load both target and drafter). [app.daily](https://app.daily.dev/posts/multi-token-prediction-in-gemma-4-p8wqk64sp)
+- On-device or constrained environments where getting more tokens/s at the same quality is crucial. [reddit](https://www.reddit.com/r/LocalLLaMA/comments/1t4jq6h/gemma_4_mtp_released/)
+
+**Trade-offs**  
+- Slight VRAM increase (to hold the drafter) for a substantial wall‑clock speedup. [tildes](https://tildes.net/~comp/1u1m/multi_token_prediction_mtp_with_gemma_4)
+- Best suited where the runtime (vLLM, HF, etc.) has explicit support for MTP/speculative decoding and for these specific Gemma 4 MTP checkpoints. [forums.developer.nvidia](https://forums.developer.nvidia.com/t/gemma-4-mtp/369123)
+
+***
+
+To connect this to your context: conceptually, MTP here is very close to a lightweight, activation-sharing speculative decoder head attached to your 31B target, not a fundamentally different LM; the key novelty is the tight integration and training so that the drafted runs are good enough that the verifier almost always accepts several tokens per pass.
+
+What part would you like to dive into next: the **mathematical training objective for predicting multiple future tokens**, or the **systems side (how this plays with KV caches, batching, and runtimes like vLLM/HF)**?
+
+----
+
+Last updated: 2026-05-08
