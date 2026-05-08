@@ -354,7 +354,68 @@ All of these follow the same pattern:
 - Attach the diagram with `--image`.
 - In the text, explicitly say: “interpret the diagram” → “translate into code” → “give a usage example”.
 
-What kind of diagram do you actually have in mind right now (CNN sketch, U‑Net, flowchart, UML, or something else)? If you describe it, a prompt can be tuned very tightly to your use case.
+**What kind of diagram do you actually have in mind right now (CNN sketch, U‑Net, flowchart, UML, or something else)? If you describe it, a prompt can be tuned very tightly to your use case.**
+
+# multimodal prompt with `gemma4:31b-coding-mtp-bf16`
+
+You can test a multimodal prompt with `gemma4:31b-coding-mtp-bf16` in two main ways: CLI or HTTP API. Here’s a concrete, copy‑paste‑ready example for each.
+
+***
+
+## 1. Test via CLI
+
+Assume you have an architecture sketch file `unet_diagram.png` in the current directory.
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16 \
+  --image ./unet_diagram.png \
+  "You see a U-Net style convolutional architecture for 2D medical image segmentation.
+
+   1) Describe the architecture in words (downsampling path, bottleneck, upsampling path, skip connections).
+   2) Translate the diagram into idiomatic PyTorch code by implementing a UNet2D(nn.Module)
+      that supports 1 input channel and a configurable number of output classes.
+   3) Show a complete forward() method and a short example that instantiates the model
+      and runs a dummy tensor of shape [1, 1, 256, 256] through it.
+   4) Finally, comment inline on any assumptions you had to make that are not explicit
+      in the diagram."
+```
+
+This gives the model an image + an explicit coding task and forces it to both “read” the diagram and emit runnable code.
+
+***
+
+## 2. Test via HTTP API (Python)
+
+Same idea, but from a Python script using the local Ollama endpoint:
+
+```python
+import base64
+import requests
+
+# Encode the image as base64
+with open("unet_diagram.png", "rb") as f:
+    img_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+payload = {
+    "model": "gemma4:31b-coding-mtp-bf16",
+    "prompt": (
+        "You see a U-Net style convolutional architecture for 2D medical image segmentation.\n"
+        "1) Describe the architecture in words (down path, bottleneck, up path, skip connections).\n"
+        "2) Implement a UNet2D in PyTorch that matches the diagram as closely as possible.\n"
+        "3) Include a forward() method and an example call on a [1, 1, 256, 256] tensor."
+    ),
+    "images": [img_b64],
+}
+
+resp = requests.post("http://localhost:11434/api/generate", json=payload)
+print(resp.json()["response"])
+```
+
+This is usually the easiest way to inspect the raw output and quickly tweak prompts.
+
+***
+
+If you tell a bit about the kind of diagram you actually have (e.g., CNN, U‑Net, flowchart, UML, or a plotting/analysis figure), a prompt can be tailored more tightly to your specific multimodal test.
 
 ----
 
