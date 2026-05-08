@@ -44,7 +44,7 @@ using `llama-cpp-python` (enabling MacOS Metal by deafult)
 
 > Please explain to me Muti-Token Prediction (e.g., gemma4:31b-coding-mtp-bf16)
 >
-> **macOS**
+> **macOS**<br>
 > Ollama on macOS now supports native MTP support for Gemma 4 via [MLX](https://c.vialoops.com/CL0/https:%2F%2Follama.com%2Fblog%2Fmlx/1/0100019e059a38c0-9649d427-5e79-440e-85be-9bd9a500702a-000000/g1UnwPPt8Jc0is0u_avNjhVxKqWs7oP-Iu1Z6Yp69QU=452):
 > 
 > `ollama run gemma4:31b-coding-mtp-bf16`
