@@ -119,6 +119,243 @@ To connect this to your context: conceptually, MTP here is very close to a light
 
 What part would you like to dive into next: the **mathematical training objective for predicting multiple future tokens**, or the **systems side (how this plays with KV caches, batching, and runtimes like vLLM/HF)**?
 
+# Using ollama and gemma4:31b-coding-mtp-bf16 on MacOS
+
+With `ollama run gemma4:31b-coding-mtp-bf16` you’re starting an interactive, **multimodal** Gemma 4 31B session (text + image in, text out), with MTP giving you decoding speedups under the hood. [ollama](https://ollama.com/library/gemma4:31b-coding-mtp-bf16)
+
+Below are concrete usage patterns from the CLI and via the local HTTP API.
+
+***
+
+## 1. Simple text-only coding use
+
+After:
+
+```bash
+ollama pull gemma4:31b-coding-mtp-bf16
+ollama run gemma4:31b-coding-mtp-bf16
+```
+
+You can just type:
+
+```text
+Write a Python function that loads a 3D NIfTI brain MRI with nibabel,
+normalizes it to zero mean and unit variance, and returns a NumPy array.
+Explain each step briefly.
+```
+
+The model will respond as a coding‑tuned assistant; MTP is transparent here (no special syntax needed). [ollama](https://ollama.com/library/gemma4:31b-coding-mtp-bf16)
+
+***
+
+## 2. Multimodal from the CLI (image + text)
+
+Gemma 4 31B on Ollama supports **image input**.  The generic Ollama multimodal pattern is: [ollama](https://ollama.com/library/gemma4/tags)
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16 \
+  --image /path/to/figure.png \
+  "This is a sagittal T1‑weighted brain MRI. 
+   Describe any visible artifacts and suggest preprocessing steps
+   for a cortical thickness pipeline."
+```
+
+Notes:  
+- `--image path` attaches the image; put the image **before** the text prompt for best results. [youtube](https://www.youtube.com/watch?v=zyirOtgICZs)
+- You can pass multiple `--image` flags if you want to compare images. [gemma4-ai](https://gemma4-ai.com/blog/gemma4-multimodal)
+
+Another example, more code‑centric:
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16 \
+  --image ./screenshot_of_error.png \
+  "This is a screenshot of a Python stack trace from a Jupyter notebook.
+   Extract the error message and propose a fix."
+```
+
+***
+
+## 3. Multimodal via the local HTTP API (Python)
+
+Ollama exposes a local HTTP endpoint; images are sent as **base64 strings** in the `images` field. [datacamp](https://www.datacamp.com/tutorial/gemma-4-tutorial)
+
+```python
+import base64
+import json
+import requests
+
+# Encode image
+with open("brain_slice.png", "rb") as f:
+    img_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+payload = {
+    "model": "gemma4:31b-coding-mtp-bf16",
+    "prompt": (
+        "You see an axial brain MR image. "
+        "Classify whether this looks like T1, T2, or FLAIR, and explain why. "
+        "Then suggest Python code using MONAI to load and minimally preprocess "
+        "a dataset of similar images."
+    ),
+    "images": [img_b64],
+}
+
+resp = requests.post("http://localhost:11434/api/generate", json=payload, stream=False)
+print(resp.json()["response"])
+```
+
+Same pattern for any other coding + image task (e.g., diagram-to-code, reading plots, OCR of console logs). [gemma4-ai](https://gemma4-ai.com/blog/gemma4-multimodal)
+
+***
+
+## 4. A few concrete multimodal prompt ideas (CLI-style)
+
+Just to give you a feel for what’s reasonable to ask:
+
+- **Diagram → code**  
+  ```bash
+  ollama run gemma4:31b-coding-mtp-bf16 \
+    --image ./cnn_diagram.jpg \
+    "Translate this architecture into PyTorch code using nn.Module. 
+     Include conv, pooling, and fully connected layers as shown."
+  ```
+
+- **LaTeX / paper screenshot → explanation + code**  
+  ```bash
+  ollama run gemma4:31b-coding-mtp-bf16 \
+    --image ./paper_equation.png \
+    "This is an equation from a diffusion MRI paper. 
+     Explain it in plain language and show Python code 
+     that numerically computes the right-hand side."
+  ```
+
+- **Notebook cell screenshot → debugging**  
+  ```bash
+  ollama run gemma4:31b-coding-mtp-bf16 \
+    --image ./notebook_error.png \
+    "Read the error from this screenshot and suggest how to fix the code. 
+     Provide a corrected cell."
+  ```
+
+All of these work the same way: `--image` + a clear text instruction; the MTP tag just makes generation faster. [ollama](https://ollama.com/library/gemma4:31b-coding-mtp-bf16)
+
+***
+
+Given your interests, what kind of multimodal coding workflow are you most likely to try first (e.g., “explain MRI figures”, “debug code from screenshots”, or “transcribe equations/plots into code”)?
+
+Here are some concrete “diagram → code” examples you can run directly with:
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16
+```
+
+or via the `--image` flag.
+
+***
+
+## 1. CNN diagram → PyTorch model
+
+Assume you have a whiteboard/photo of a CNN architecture (Conv → ReLU → Pool → Conv → ReLU → Pool → FC → Softmax) in `cnn_diagram.png`.
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16 \
+  --image ./cnn_diagram.png \
+  "This diagram shows a convolutional neural network.
+   1) Describe the architecture in words (layers, filter sizes, activations).
+   2) Implement the network in PyTorch as a nn.Module called SimpleCNN
+      that matches the diagram as closely as possible.
+   3) Add a forward() method and a short example of how to instantiate
+      and run a batch of dummy data through the network."
+```
+
+This uses the image as the “spec,” and your text prompt makes the task: interpret then implement.
+
+***
+
+## 2. U‑Net style architecture sketch → PyTorch/Lightning
+
+Say you have a hand‑drawn U‑Net diagram saved as `unet_sketch.jpg`.
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16 \
+  --image ./unet_sketch.jpg \
+  "This is a U-Net style architecture diagram for 2D medical image segmentation.
+   1) Infer the number of downsampling and upsampling stages.
+   2) Write PyTorch code for a UNet2D class compatible with 1-channel input
+      and a configurable number of output classes.
+   3) Use Conv2d, BatchNorm2d, ReLU, MaxPool2d, and ConvTranspose2d as appropriate.
+   4) At the end, show a short example constructing the model for 1 input channel
+      and 3 output classes, and running a [1,1,256,256] tensor through it."
+```
+
+If you want a Lightning module:
+
+```bash
+"... Now wrap this architecture in a PyTorch Lightning module with a
+cross-entropy loss and a simple training_step."
+```
+
+***
+
+## 3. Flow diagram → Python pipeline
+
+Suppose you have a block diagram: “Load DICOM → Convert to NIfTI → Bias correction → Registration → Segmentation” in `pipeline_diagram.png`.
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16 \
+  --image ./pipeline_diagram.png \
+  "This block diagram represents a brain MRI preprocessing pipeline.
+   1) Read the diagram and list each step in order, with a one-line description.
+   2) Implement a Python module that exposes a function
+        run_pipeline(input_dir: str, output_dir: str) -> None
+      that performs each step using common open-source tools
+      (e.g., dcm2niix, nibabel, SimpleITK, MONAI transforms).
+   3) Use placeholder commands or function calls where needed,
+      but keep the structure realistic and idiomatic."
+```
+
+***
+
+## 4. Class diagram / ER diagram → data classes
+
+Imagine a UML class diagram or ER diagram showing entities like `Patient`, `Study`, `Series`, `Image`, stored in `dicom_uml.png`.
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16 \
+  --image ./dicom_uml.png \
+  "This UML diagram shows a data model for DICOM entities.
+   1) Extract the classes, their fields, and relationships.
+   2) Generate Python code using dataclasses to represent this model.
+   3) Include type annotations and simple __str__ methods.
+   4) At the end, provide a short example that instantiates a Patient
+      with one Study, one Series, and two Images."
+```
+
+***
+
+## 5. State machine diagram → implementation
+
+Say you have a state diagram for a job scheduler (Queued → Running → Succeeded/Failed) in `state_machine.png`.
+
+```bash
+ollama run gemma4:31b-coding-mtp-bf16 \
+  --image ./state_machine.png \
+  "This is a state machine diagram for a job scheduler.
+   1) Infer the states and transitions.
+   2) Implement a Python class JobStateMachine with methods
+      for each transition, enforcing valid transitions only.
+   3) Add a short example showing creation of a job, running it,
+      and handling both success and failure paths."
+```
+
+***
+
+All of these follow the same pattern:
+
+- Attach the diagram with `--image`.
+- In the text, explicitly say: “interpret the diagram” → “translate into code” → “give a usage example”.
+
+What kind of diagram do you actually have in mind right now (CNN sketch, U‑Net, flowchart, UML, or something else)? If you describe it, a prompt can be tuned very tightly to your use case.
+
 ----
 
 Last updated: 2026-05-08
