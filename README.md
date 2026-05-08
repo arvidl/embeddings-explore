@@ -1,6 +1,6 @@
 # Explore embeddings, tokenization, and local models
 
-[Arvid Lundervold](https://www4.uib.no/en/find-employees/Arvid.Lundervold) @ 2025-09-09
+[Arvid Lundervold](https://www4.uib.no/en/find-employees/Arvid.Lundervold)  2025-09-09
 
 Exploration of *tokenization*, *embeddings*, and (cosine) *similarity* of **Colors**, the **Likert scale scores**, and **Neurological diagnoses** using `google/embeddinggemma-300m`
 
