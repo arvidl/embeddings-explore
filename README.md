@@ -117,7 +117,7 @@ To connect this to your context: conceptually, MTP here is very close to a light
 
 What part would you like to dive into next: the **mathematical training objective for predicting multiple future tokens**, or the **systems side (how this plays with KV caches, batching, and runtimes like vLLM/HF)**?
 
-# Using ollama and gemma4:31b-coding-mtp-bf16 on MacOS
+# ollama and gemma4:31b-coding-mtp-bf16 on MacOS
 
 With `ollama run gemma4:31b-coding-mtp-bf16` you’re starting an interactive, **multimodal** Gemma 4 31B session (text + image in, text out), with MTP giving you decoding speedups under the hood. [ollama](https://ollama.com/library/gemma4:31b-coding-mtp-bf16)
 
