@@ -148,6 +148,9 @@ The model will respond as a coding‑tuned assistant; MTP is transparent here (n
 
 ## 2. Multimodal from the CLI (image + text)
 
+
+**One thing worth flagging**: gemma4:31b-coding-mtp-bf16 doesn't sound like a vision-capable model — "coding" variants are text-only, and I don't recognize that exact tag.
+
 Gemma 4 31B on Ollama supports **image input**.  The generic Ollama multimodal pattern is: [ollama](https://ollama.com/library/gemma4/tags)
 
 ```bash
